@@ -12,7 +12,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
 
 public class GameScreen extends ScreenAdapter {
-    private static final float MOVE_TIME = 1f;
+    private static final float MOVE_TIME = .5f;
     private static final int SNAKE_MOVEMENT = 32;
 
     private enum SnakeDirection {
@@ -30,10 +30,10 @@ public class GameScreen extends ScreenAdapter {
 
     @Override
     public void show() {
+        batch = new SpriteBatch();
         snakeHead = new Texture(Gdx.files.internal("snakehead.png"));
         apple = new Texture(Gdx.files.internal("apple.png"));
         snakeBody = new Texture(Gdx.files.internal("snakebody.png"));
-        batch = new SpriteBatch();
     }
 
     @Override
@@ -47,9 +47,9 @@ public class GameScreen extends ScreenAdapter {
             checkForOutOfBounds();
             updateBodyPartsPosition();
             checkAppleCollision();
+            checkAndPlaceApple();
         }
 
-        checkAndPlaceApple();
         clearScreen();
         draw();
     }
