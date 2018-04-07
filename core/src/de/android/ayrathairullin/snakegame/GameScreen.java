@@ -47,48 +47,58 @@ public class GameScreen extends ScreenAdapter {
     public void render(float delta) {
         queryInput();
 
-        timer -= delta;
-        if (timer <= 0) {
-            timer = MOVE_TIME;
-            moveSnake();
-            checkForOutOfBounds();
-            updateBodyPartsPosition();
-            checkAppleCollision();
-            checkAndPlaceApple();
-            directionSet = false;
-        }
+        updateSnacke(delta);
+        checkAppleCollision();
+        checkAndPlaceApple();
 
         clearScreen();
         drawGrid();
         draw();
     }
 
-    private void draw() {
-        batch.begin();
-        batch.draw(snakeHead, snakeX, snakeY);
-        for (BodyPart bodyPart : bodyParts) {
-            bodyPart.draw(batch);
+    private void queryInput() {
+        if (Gdx.input.isKeyPressed(Keys.LEFT)) updateDirection(SnakeDirection.LEFT);
+        if (Gdx.input.isKeyPressed(Keys.RIGHT)) updateDirection(SnakeDirection.RIGHT);
+        if (Gdx.input.isKeyPressed(Keys.UP)) updateDirection(SnakeDirection.UP);
+        if (Gdx.input.isKeyPressed(Keys.DOWN)) updateDirection(SnakeDirection.DOWN);
+    }
+
+    private void updateDirection(SnakeDirection newSnakeDirection) {
+        if (!directionSet && snakeDirection != newSnakeDirection) {
+            directionSet = true;
+            switch (newSnakeDirection) {
+                case LEFT:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.RIGHT);
+                    break;
+                case RIGHT:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.LEFT);
+                    break;
+                case UP:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.DOWN);
+                    break;
+                case DOWN:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.UP);
+                    break;
+            }
         }
-        if (appleAvailable) batch.draw(apple, appleX, appleY);
-        batch.end();
     }
 
-    private void clearScreen() {
-        Gdx.gl.glClearColor(0, 0, 0, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+    private void updateIfNotOppositeDirection(SnakeDirection newSnakeDirection, SnakeDirection oppositeDirection) {
+        if (snakeDirection != oppositeDirection || bodyParts.size == 0) snakeDirection = newSnakeDirection;
     }
 
-    @Override
-    public void dispose() {
-        snakeHead.dispose();
-        apple.dispose();
-    }
-
-    private void checkForOutOfBounds() {
-        if (snakeX >= Gdx.graphics.getWidth()) snakeX = 0;
-        if (snakeX < 0) snakeX = Gdx.graphics.getWidth() - SNAKE_MOVEMENT;
-        if (snakeY >= Gdx.graphics.getHeight()) snakeY = 0;
-        if (snakeY < 0) snakeY = Gdx.graphics.getHeight() - SNAKE_MOVEMENT;
+    private void updateSnacke(float delta) {
+        if (!hasHit) {
+            timer -= delta;
+            if (timer <= 0) {
+                timer = MOVE_TIME;
+                moveSnake();
+                checkForOutOfBounds();
+                updateBodyPartsPosition();
+                checkSnackBodyCollision();
+                directionSet = false;
+            }
+        }
     }
 
     private void moveSnake() {
@@ -110,11 +120,19 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
-    private void queryInput() {
-        if (Gdx.input.isKeyPressed(Keys.LEFT)) updateDirection(SnakeDirection.LEFT);
-        if (Gdx.input.isKeyPressed(Keys.RIGHT)) updateDirection(SnakeDirection.RIGHT);
-        if (Gdx.input.isKeyPressed(Keys.UP)) updateDirection(SnakeDirection.UP);
-        if (Gdx.input.isKeyPressed(Keys.DOWN)) updateDirection(SnakeDirection.DOWN);
+    private void checkForOutOfBounds() {
+        if (snakeX >= Gdx.graphics.getWidth()) snakeX = 0;
+        if (snakeX < 0) snakeX = Gdx.graphics.getWidth() - SNAKE_MOVEMENT;
+        if (snakeY >= Gdx.graphics.getHeight()) snakeY = 0;
+        if (snakeY < 0) snakeY = Gdx.graphics.getHeight() - SNAKE_MOVEMENT;
+    }
+
+    private void updateBodyPartsPosition() {
+        if (bodyParts.size > 0) {
+            BodyPart bodyPart = bodyParts.removeIndex(0);
+            bodyPart.updateBodyPosition(snakeXBeforeUpdate, snakeYBeforeUpdate);
+            bodyParts.add(bodyPart);
+        }
     }
 
     private void checkAndPlaceApple() {
@@ -128,7 +146,7 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void checkAppleCollision() {
-        if (snakeX == appleX && snakeY == appleY) {
+        if (appleAvailable && snakeX == appleX && snakeY == appleY) {
             BodyPart bodyPart = new BodyPart(snakeBody);
             bodyPart.updateBodyPosition(snakeX, snakeY);
             bodyParts.insert(0, bodyPart);
@@ -136,12 +154,17 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
-    private void updateBodyPartsPosition() {
-        if (bodyParts.size > 0) {
-            BodyPart bodyPart = bodyParts.removeIndex(0);
-            bodyPart.updateBodyPosition(snakeXBeforeUpdate, snakeYBeforeUpdate);
-            bodyParts.add(bodyPart);
+    private void checkSnackBodyCollision() {
+        for (BodyPart bodyPart : bodyParts) {
+            if (bodyParts.size > 3) {
+                if (bodyPart.x == snakeX && bodyPart.y == snakeY) hasHit = true;
+            }
         }
+    }
+
+    private void clearScreen() {
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     }
 
     private void drawGrid() {
@@ -154,28 +177,20 @@ public class GameScreen extends ScreenAdapter {
         shapeRenderer.end();
     }
 
-    private void updateIfNotOppositeDirection(SnakeDirection newSnakeDirection, SnakeDirection oppositeDirection) {
-        if (snakeDirection != oppositeDirection || bodyParts.size == 0) snakeDirection = newSnakeDirection;
+    private void draw() {
+        batch.begin();
+        batch.draw(snakeHead, snakeX, snakeY);
+        for (BodyPart bodyPart : bodyParts) {
+            bodyPart.draw(batch);
+        }
+        if (appleAvailable) batch.draw(apple, appleX, appleY);
+        batch.end();
     }
 
-    private void updateDirection(SnakeDirection newSnakeDirection) {
-        if (!directionSet && snakeDirection != newSnakeDirection) {
-            directionSet = true;
-            switch (newSnakeDirection) {
-                case LEFT:
-                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.RIGHT);
-                    break;
-                case RIGHT:
-                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.LEFT);
-                    break;
-                case UP:
-                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.DOWN);
-                    break;
-                case DOWN:
-                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.UP);
-                    break;
-            }
-        }
+    @Override
+    public void dispose() {
+        snakeHead.dispose();
+        apple.dispose();
     }
 
     private class BodyPart {
