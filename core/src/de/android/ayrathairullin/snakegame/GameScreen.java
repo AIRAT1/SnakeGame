@@ -8,12 +8,14 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
 
 public class GameScreen extends ScreenAdapter {
     private static final float MOVE_TIME = .5f;
     private static final int SNAKE_MOVEMENT = 32;
+    private static final int GRID_CELL = 32;
 
     private enum SnakeDirection {
         LEFT, RIGHT, UP, DOWN
@@ -28,8 +30,11 @@ public class GameScreen extends ScreenAdapter {
     private boolean appleAvailable = false;
     private Array<BodyPart> bodyParts = new Array<BodyPart>();
 
+    private ShapeRenderer shapeRenderer;
+
     @Override
     public void show() {
+        shapeRenderer = new ShapeRenderer();
         batch = new SpriteBatch();
         snakeHead = new Texture(Gdx.files.internal("snakehead.png"));
         apple = new Texture(Gdx.files.internal("apple.png"));
@@ -51,6 +56,7 @@ public class GameScreen extends ScreenAdapter {
         }
 
         clearScreen();
+        drawGrid();
         draw();
     }
 
@@ -133,6 +139,16 @@ public class GameScreen extends ScreenAdapter {
             bodyPart.updateBodyPosition(snakeXBeforeUpdate, snakeYBeforeUpdate);
             bodyParts.add(bodyPart);
         }
+    }
+
+    private void drawGrid() {
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        for (int x = 0; x < Gdx.graphics.getWidth(); x+= GRID_CELL) {
+            for (int y = 0; y < Gdx.graphics.getHeight(); y+= GRID_CELL) {
+                shapeRenderer.rect(x, y, GRID_CELL, GRID_CELL);
+            }
+        }
+        shapeRenderer.end();
     }
 
     private class BodyPart {
