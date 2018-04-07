@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -22,6 +23,8 @@ public class GameScreen extends ScreenAdapter {
     private static final int GRID_CELL = 32;
     private static final String GAME_OVER_TEXT = "Game Over... Tap space to restart!";
     private static final int POINTS_PER_APPLE = 1;
+    private static final float WORLD_WIDTH = 640;
+    private static final float WORLD_HEIGHT = 480;
 
     private enum SnakeDirection {
         LEFT, RIGHT, UP, DOWN
@@ -48,10 +51,14 @@ public class GameScreen extends ScreenAdapter {
     private GlyphLayout layout;
     private Viewport viewport;
     private int score = 0;
+    private OrthographicCamera camera;
 
     @Override
     public void show() {
-        viewport = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera.position.set(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 0);
+        camera.update();
+        viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
         layout = new GlyphLayout();
         bitmapFont = new BitmapFont();
         shapeRenderer = new ShapeRenderer();
@@ -94,6 +101,26 @@ public class GameScreen extends ScreenAdapter {
         if (Gdx.input.isKeyPressed(Keys.RIGHT)) updateDirection(SnakeDirection.RIGHT);
         if (Gdx.input.isKeyPressed(Keys.UP)) updateDirection(SnakeDirection.UP);
         if (Gdx.input.isKeyPressed(Keys.DOWN)) updateDirection(SnakeDirection.DOWN);
+    }
+
+    private void checkForRestart() {
+        if (Gdx.input.isKeyPressed(Keys.SPACE)) {
+            doRestart();
+        }
+    }
+
+    private void doRestart() {
+        state = State.PLAYING;
+        bodyParts.clear();
+        snakeDirection = SnakeDirection.RIGHT;
+        directionSet = false;
+        timer = MOVE_TIME;
+        snakeX = 0;
+        snakeY = 0;
+        snakeXBeforeUpdate = 0;
+        snakeYBeforeUpdate = 0;
+        appleAvailable = false;
+        score = 0;
     }
 
     private void updateDirection(SnakeDirection newSnakeDirection) {
@@ -152,10 +179,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void checkForOutOfBounds() {
-        if (snakeX >= Gdx.graphics.getWidth()) snakeX = 0;
-        if (snakeX < 0) snakeX = Gdx.graphics.getWidth() - SNAKE_MOVEMENT;
-        if (snakeY >= Gdx.graphics.getHeight()) snakeY = 0;
-        if (snakeY < 0) snakeY = Gdx.graphics.getHeight() - SNAKE_MOVEMENT;
+        if (snakeX >= viewport.getWorldWidth()) snakeX = 0;
+        if (snakeX < 0) snakeX = MathUtils.round(viewport.getWorldWidth()) - SNAKE_MOVEMENT;
+        if (snakeY >= viewport.getWorldHeight()) snakeY = 0;
+        if (snakeY < 0) snakeY = MathUtils.round(viewport.getWorldHeight()) - SNAKE_MOVEMENT;
     }
 
     private void updateBodyPartsPosition() {
@@ -169,8 +196,8 @@ public class GameScreen extends ScreenAdapter {
     private void checkAndPlaceApple() {
         if (!appleAvailable) {
             do {
-                appleX = MathUtils.random(Gdx.graphics.getWidth() / SNAKE_MOVEMENT - 1) * SNAKE_MOVEMENT;
-                appleY = MathUtils.random(Gdx.graphics.getHeight() / SNAKE_MOVEMENT - 1) * SNAKE_MOVEMENT;
+                appleX = MathUtils.random((int) (viewport.getWorldWidth() / SNAKE_MOVEMENT) - 1) * SNAKE_MOVEMENT;
+                appleY = MathUtils.random((int) (viewport.getWorldHeight() / SNAKE_MOVEMENT) - 1) * SNAKE_MOVEMENT;
                 appleAvailable = true;
             }while (appleX == snakeX && appleY == snakeY);
         }
@@ -194,15 +221,21 @@ public class GameScreen extends ScreenAdapter {
         }
     }
 
+    private void addToScore() {
+        score += POINTS_PER_APPLE;
+    }
+
     private void clearScreen() {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     }
 
     private void drawGrid() {
+        shapeRenderer.setProjectionMatrix(camera.projection);
+        shapeRenderer.setTransformMatrix(camera.view);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        for (int x = 0; x < Gdx.graphics.getWidth(); x+= GRID_CELL) {
-            for (int y = 0; y < Gdx.graphics.getHeight(); y+= GRID_CELL) {
+        for (int x = 0; x < viewport.getWorldWidth(); x+= GRID_CELL) {
+            for (int y = 0; y < viewport.getWorldHeight(); y+= GRID_CELL) {
                 shapeRenderer.rect(x, y, GRID_CELL, GRID_CELL);
             }
         }
@@ -210,6 +243,8 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void draw() {
+        batch.setProjectionMatrix(camera.projection);
+        batch.setTransformMatrix(camera.view);
         batch.begin();
         batch.draw(snakeHead, snakeX, snakeY);
         for (BodyPart bodyPart : bodyParts) {
@@ -230,34 +265,14 @@ public class GameScreen extends ScreenAdapter {
         viewport.update(width, height);
     }
 
-    private void checkForRestart() {
-        if (Gdx.input.isKeyPressed(Keys.SPACE)) {
-            doRestart();
-        }
-    }
 
-    private void doRestart() {
-        state = State.PLAYING;
-        bodyParts.clear();
-        snakeDirection = SnakeDirection.RIGHT;
-        directionSet = false;
-        timer = MOVE_TIME;
-        snakeX = 0;
-        snakeY = 0;
-        snakeXBeforeUpdate = 0;
-        snakeYBeforeUpdate = 0;
-        appleAvailable = false;
-        score = 0;
-    }
 
-    private void addToScore() {
-        score += POINTS_PER_APPLE;
-    }
+
 
     private void drawScore() {
         if (state == State.PLAYING) {
-            bitmapFont.draw(batch, String.valueOf(score), Gdx.graphics.getWidth() -
-                    Gdx.graphics.getWidth() / 15f, Gdx.graphics.getHeight() * .95f);
+            bitmapFont.draw(batch, String.valueOf(score), viewport.getWorldWidth() -
+                    viewport.getWorldWidth() / 15f, viewport.getWorldHeight() * .95f);
         }
     }
 
