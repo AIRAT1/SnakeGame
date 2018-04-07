@@ -7,21 +7,32 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class GameScreen extends ScreenAdapter {
     private static final float MOVE_TIME = .5f;
     private static final int SNAKE_MOVEMENT = 32;
     private static final int GRID_CELL = 32;
+    private static final String GAME_OVER_TEXT = "Game Over... Tap space to restart!";
+    private static final int POINTS_PER_APPLE = 1;
 
     private enum SnakeDirection {
         LEFT, RIGHT, UP, DOWN
     }
 
+    private enum State {
+        PLAYING, GAME_OVER
+    }
+
     private SnakeDirection snakeDirection = SnakeDirection.RIGHT;
+    private State state = State.PLAYING;
 
     private SpriteBatch batch;
     private Texture snakeHead, apple, snakeBody;
@@ -32,10 +43,17 @@ public class GameScreen extends ScreenAdapter {
 
     private ShapeRenderer shapeRenderer;
     private boolean directionSet = false;
-    private boolean hasHit = false;
+
+    private BitmapFont bitmapFont;
+    private GlyphLayout layout;
+    private Viewport viewport;
+    private int score = 0;
 
     @Override
     public void show() {
+        viewport = new FitViewport(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        layout = new GlyphLayout();
+        bitmapFont = new BitmapFont();
         shapeRenderer = new ShapeRenderer();
         batch = new SpriteBatch();
         snakeHead = new Texture(Gdx.files.internal("snakehead.png"));
@@ -44,15 +62,30 @@ public class GameScreen extends ScreenAdapter {
     }
 
     @Override
+    public void dispose() {
+        bitmapFont.dispose();
+        shapeRenderer.dispose();
+        batch.dispose();
+        snakeHead.dispose();
+        apple.dispose();
+        snakeBody.dispose();
+    }
+
+    @Override
     public void render(float delta) {
-        queryInput();
-
-        updateSnacke(delta);
-        checkAppleCollision();
-        checkAndPlaceApple();
-
+        switch (state) {
+            case PLAYING:
+                queryInput();
+                updateSnacke(delta);
+                checkAppleCollision();
+                checkAndPlaceApple();
+                break;
+            case GAME_OVER:
+                checkForRestart();
+                break;
+        }
         clearScreen();
-        drawGrid();
+//        drawGrid();
         draw();
     }
 
@@ -88,7 +121,6 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void updateSnacke(float delta) {
-        if (!hasHit) {
             timer -= delta;
             if (timer <= 0) {
                 timer = MOVE_TIME;
@@ -98,7 +130,6 @@ public class GameScreen extends ScreenAdapter {
                 checkSnackBodyCollision();
                 directionSet = false;
             }
-        }
     }
 
     private void moveSnake() {
@@ -150,6 +181,7 @@ public class GameScreen extends ScreenAdapter {
             BodyPart bodyPart = new BodyPart(snakeBody);
             bodyPart.updateBodyPosition(snakeX, snakeY);
             bodyParts.insert(0, bodyPart);
+            addToScore();
             appleAvailable = false;
         }
     }
@@ -157,7 +189,7 @@ public class GameScreen extends ScreenAdapter {
     private void checkSnackBodyCollision() {
         for (BodyPart bodyPart : bodyParts) {
             if (bodyParts.size > 3) {
-                if (bodyPart.x == snakeX && bodyPart.y == snakeY) hasHit = true;
+                if (bodyPart.x == snakeX && bodyPart.y == snakeY) state = State.GAME_OVER;
             }
         }
     }
@@ -184,13 +216,49 @@ public class GameScreen extends ScreenAdapter {
             bodyPart.draw(batch);
         }
         if (appleAvailable) batch.draw(apple, appleX, appleY);
+        if (state == State.GAME_OVER) {
+            layout.setText(bitmapFont, GAME_OVER_TEXT);
+            bitmapFont.draw(batch, GAME_OVER_TEXT, (viewport.getWorldWidth() - layout.width) / 2,
+                    (viewport.getWorldHeight() - layout.height) / 2);
+        }
+        drawScore();
         batch.end();
     }
 
     @Override
-    public void dispose() {
-        snakeHead.dispose();
-        apple.dispose();
+    public void resize(int width, int height) {
+        viewport.update(width, height);
+    }
+
+    private void checkForRestart() {
+        if (Gdx.input.isKeyPressed(Keys.SPACE)) {
+            doRestart();
+        }
+    }
+
+    private void doRestart() {
+        state = State.PLAYING;
+        bodyParts.clear();
+        snakeDirection = SnakeDirection.RIGHT;
+        directionSet = false;
+        timer = MOVE_TIME;
+        snakeX = 0;
+        snakeY = 0;
+        snakeXBeforeUpdate = 0;
+        snakeYBeforeUpdate = 0;
+        appleAvailable = false;
+        score = 0;
+    }
+
+    private void addToScore() {
+        score += POINTS_PER_APPLE;
+    }
+
+    private void drawScore() {
+        if (state == State.PLAYING) {
+            bitmapFont.draw(batch, String.valueOf(score), Gdx.graphics.getWidth() -
+                    Gdx.graphics.getWidth() / 15f, Gdx.graphics.getHeight() * .95f);
+        }
     }
 
     private class BodyPart {
