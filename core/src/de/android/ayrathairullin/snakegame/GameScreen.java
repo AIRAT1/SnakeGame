@@ -31,6 +31,8 @@ public class GameScreen extends ScreenAdapter {
     private Array<BodyPart> bodyParts = new Array<BodyPart>();
 
     private ShapeRenderer shapeRenderer;
+    private boolean directionSet = false;
+    private boolean hasHit = false;
 
     @Override
     public void show() {
@@ -53,6 +55,7 @@ public class GameScreen extends ScreenAdapter {
             updateBodyPartsPosition();
             checkAppleCollision();
             checkAndPlaceApple();
+            directionSet = false;
         }
 
         clearScreen();
@@ -108,10 +111,10 @@ public class GameScreen extends ScreenAdapter {
     }
 
     private void queryInput() {
-        if (Gdx.input.isKeyPressed(Keys.LEFT)) snakeDirection = SnakeDirection.LEFT;
-        if (Gdx.input.isKeyPressed(Keys.RIGHT)) snakeDirection = SnakeDirection.RIGHT;
-        if (Gdx.input.isKeyPressed(Keys.UP)) snakeDirection = SnakeDirection.UP;
-        if (Gdx.input.isKeyPressed(Keys.DOWN)) snakeDirection = SnakeDirection.DOWN;
+        if (Gdx.input.isKeyPressed(Keys.LEFT)) updateDirection(SnakeDirection.LEFT);
+        if (Gdx.input.isKeyPressed(Keys.RIGHT)) updateDirection(SnakeDirection.RIGHT);
+        if (Gdx.input.isKeyPressed(Keys.UP)) updateDirection(SnakeDirection.UP);
+        if (Gdx.input.isKeyPressed(Keys.DOWN)) updateDirection(SnakeDirection.DOWN);
     }
 
     private void checkAndPlaceApple() {
@@ -149,6 +152,30 @@ public class GameScreen extends ScreenAdapter {
             }
         }
         shapeRenderer.end();
+    }
+
+    private void updateIfNotOppositeDirection(SnakeDirection newSnakeDirection, SnakeDirection oppositeDirection) {
+        if (snakeDirection != oppositeDirection || bodyParts.size == 0) snakeDirection = newSnakeDirection;
+    }
+
+    private void updateDirection(SnakeDirection newSnakeDirection) {
+        if (!directionSet && snakeDirection != newSnakeDirection) {
+            directionSet = true;
+            switch (newSnakeDirection) {
+                case LEFT:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.RIGHT);
+                    break;
+                case RIGHT:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.LEFT);
+                    break;
+                case UP:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.DOWN);
+                    break;
+                case DOWN:
+                    updateIfNotOppositeDirection(newSnakeDirection, SnakeDirection.UP);
+                    break;
+            }
+        }
     }
 
     private class BodyPart {
